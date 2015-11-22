@@ -2,8 +2,8 @@
 #include <Wire.h>
 #include <SPI.h>
 
-double THRESHOLD =500;
-double MULTIPLIER =100; //values in %
+double THRESHOLD =600;
+double MULTIPLIER =75; //values in %
 
 double Speed = 255*(MULTIPLIER/100);
 int State = 0;
@@ -21,15 +21,16 @@ double motorgain;
 double leftmotorspeed;
 double rightmotorspeed;
 
-double divider = 1.25;
+double divider = 1;
 
-double Kp = 7;
-double Kd = 10;
+double Kp = 3.75;
+double Kd = 10000;
 
 double lms,rms;
 double integral1, error1, perror1, derivative1, output1, p1, i1, d1,dt1;
 
-int state, lprob,rpob , probet, rsense, fprobe, lprobe, sprobe, dly;
+int state, lprob , rprob, probet, rsense, fprobe, lprobe, sprobe, dly;
+int lfprobe, rtprobe;
 
 #define LRS TKD2
 #define FRS TKD1
@@ -40,11 +41,13 @@ void setup()
   integral1 = 0;
   perror1 = 0;
   p1 = 10;
+  //p1 = 4;
   i1 = 1;
+  //d1 = 900;
   d1 = 1200;
   dt1 = 25;
 
-  State = 1;
+  State = 0;
   probet = 100;
   rsense = 1;  
   sprobe = 0;
@@ -57,30 +60,60 @@ void setup()
 
 void loop()
 {
-  Serial.println(State);
+  //Serial.println(State);
+  lfprobe = range(LRS);
+  rtprobe = range(RRS);
+  fprobe = range(FRS);
+
+  if (lfprobe < 0 )
+    lfprobe = 1000;
+  if (rtprobe < 0 )
+    rtprobe = 1000;
+  if (fprobe < 0 )
+    fprobe = 1000;
+
+    Serial.print(lfprobe);
+  Serial.print(" ");
+  Serial.print(fprobe);
+  Serial.print(" ");
+  Serial.print(rtprobe);
+  Serial.println();
+
   if(State == 0)
   {
     linef();
+    Serial.println("linef");
+    //delay(1000);
   }
-  else if(State == 1)
-  {
+  
+  if(State == 1)
+  { 
+    Serial.println("wallf");
     wallf();
   }
 }
 
 void wallf(){
-  Serial.println("wallf");
+  //Serial.println("wallf");
   fprobe = range(TKD1);
   lprobe = range(TKD2);
-  
-  Serial.println(fprobe);
+  rtprobe = range(TKD0);
 
-  if (fprobe < 90 && lprobe < 120)
+  if (lprobe < 0 )
+    lfprobe = 1000;
+  if (rtprobe < 0 )
+    rtprobe = 1000;
+  if (fprobe < 0 )
+    fprobe = 1000;
+
+if(0)
+{
+  if ((fprobe < 90 && fprobe > 0) && (lprobe < 120 && lprobe > 0))
   {
     Robot.motorsStop();
     tright();
 
-    if (range(LRS) < 120)
+    if (lprobe < 120)
     {
       Robot.motorsWrite(110,110);
       if (range(FRS) < 90)
@@ -88,11 +121,12 @@ void wallf(){
         Robot.motorsStop();
         sprobe = 1;
       }
-      Serial.println("lrs");
+      //Serial.println("lrs");
     }
     delay(dly);
+    Serial.println("tright1");
   }
-  if (fprobe < 90 && lprobe > 120)
+  if ((fprobe < 90 && fprobe > 0) && (lprobe > 120 && lprobe < 300))
   {
     Robot.motorsStop();
     tright();
@@ -106,6 +140,7 @@ void wallf(){
       }
     }
     delay(dly);
+    Serial.println("tright2");
   }
   if (lprobe > 200)
   {
@@ -115,10 +150,12 @@ void wallf(){
     tleft();
     Robot.motorsWrite (110,110);
     delay(1000);
+    Serial.println("tleft");
   }
+}
   
 
-  error1 = probet - lprobe;
+  error1 = rtprobe - lprobe;
   integral1 = integral1 + (error*dt1);
   derivative1 = (error1 - perror1)/dt1;
   output1 = p1 * error1 + i1 * integral1 + d1 * derivative1;
@@ -129,23 +166,28 @@ void wallf(){
 
   if (lms > 127) lms = 127;
   if (rms > 127) rms = 127;
-  if (lms < 56) lms = 56;
-  if (rms < 56) rms = 56;
+  if (lms < 48) lms = 48;
+  if (rms < 48) rms = 48;
   
   if(!sprobe)
   {
     Robot.motorsWrite(lms,rms);
   }
+  Serial.print(lms);
+  Serial.print(" ");
+  Serial.println(rms);
   sprobe = 0;
   delay(dt1);
 
 }
 
 void linef(){
+  Serial.println("line");
     Robot.updateIR();
     for(int i=0; i<5; i++){
       irs[i]=Robot.IRarray[i];
     }
+	
   if (irs[2] < THRESHOLD || (irs[1] < THRESHOLD && irs[2] < THRESHOLD && irs[3] < THRESHOLD))
     IRScore = 50;
   if (irs[3] < THRESHOLD)
@@ -175,21 +217,25 @@ void linef(){
   if (irs[3] < THRESHOLD && irs[2] < THRESHOLD && irs[1] < THRESHOLD && irs[0] < THRESHOLD) //4 IRs to right
     IRScore = 87.5;
 
-  if (irs[4] < THRESHOLD && irs[3] < THRESHOLD && irs[2] < THRESHOLD && irs[1] < THRESHOLD && irs[0] < THRESHOLD && (State == 0) || irs[4] > THRESHOLD && irs[3] > THRESHOLD && irs[2] > THRESHOLD && irs[1] > THRESHOLD && irs[0] > THRESHOLD)
+  if (irs[4] < THRESHOLD && irs[3] < THRESHOLD && irs[2] < THRESHOLD && irs[1] < THRESHOLD && irs[0] < THRESHOLD || irs[4] > THRESHOLD && irs[3] > THRESHOLD && irs[2] > THRESHOLD && irs[1] > THRESHOLD && irs[0] > THRESHOLD)
   {
     IRScore = 50;
-    lprob = range(LRS);
-	rprob = range(RRS);
-    Robot.motorsWrite(110,110);
-    rsense = 1;
-
-    if ( lprob < 200 && rprob < 200)
+  }
+  if ((irs[4] < THRESHOLD && irs[3] < THRESHOLD && irs[2] < THRESHOLD && irs[1] < THRESHOLD && irs[0] < THRESHOLD) || (irs[4] > THRESHOLD && irs[3] > THRESHOLD && irs[2] > THRESHOLD && irs[1] > THRESHOLD && irs[0] > THRESHOLD))
+  {
+    IRScore = 50;
+    
+    if((lfprobe < 200 && lfprobe > 0) && (rtprobe < 200 && rtprobe > 0))
     {
       State = 1;
+      Serial.println("wallf");
     }
+    
   }
-    else
-      rsense = 1;
+  if (irs[4] > THRESHOLD && irs[3] < THRESHOLD && irs[2] < THRESHOLD && irs[1] < THRESHOLD && irs[0] > THRESHOLD)
+    IRScore = 50;
+
+  
   error = TARGET - IRScore;
   motorgain = Kp * error + Kd * (error - lasterror);
   lasterror = error;
@@ -202,13 +248,11 @@ void linef(){
   if (leftmotorspeed < -255) leftmotorspeed = -255;
   if (rightmotorspeed < -255) rightmotorspeed = -255;
   
-  if (!rsense) 
-  {
     if (rightmotorspeed != leftmotorspeed)
       Robot.motorsWrite(leftmotorspeed/divider,rightmotorspeed/divider);
     else
       Robot.motorsWrite(leftmotorspeed,rightmotorspeed);
-  }
+  Serial.println(IRScore);
 }
 
 int range(int port)
@@ -231,6 +275,7 @@ void tright()
   Robot.motorsStop();
   delay(1000);
 }
+
 void tleft()
 {
   Robot.motorsWrite(-108,108);
