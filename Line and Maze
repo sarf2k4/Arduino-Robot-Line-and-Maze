@@ -9,7 +9,7 @@ double MULTIPLIER =75; //values in %
 double Speed = 255*(MULTIPLIER/100);
 int State = 0;
 
-int irs[5];
+int irs[5],irs2[5];
 
 //pid vars
 double IRScore;
@@ -43,6 +43,7 @@ double acu, last_error2, error2, KP2, KD2;
 //new wall
 int mint = 300;
 unsigned long pmill;
+int uturn = 0;
 
 //timers
 int turntime, ticks, tev;
@@ -125,40 +126,76 @@ void wallf(){
   {
     centl = lprobe;
     centr = rtprobe;
-    
   }
-if(0)
+if(1)
 {
-  if ((lprobe > 175))
+  if ((lprobe > 175) || (lprobe > 175 && rtprobe > 175))
   {
-    unsigned long cmill = millis();
-    
+    treset();
     Robot.motorsWrite (110,110);
-    if((cmill - pmill >= mint) && (lprobe > 175))
+    if (fprobe <90 && lprobe > 175)
     {
-      pmill = cmill;
       Robot.motorsStop();
       tleft();
       Robot.motorsWrite (110,110);
+      tstop();
       delay(1000);
     }
-    else
     
+    if((tev >= 3) && (lprobe > 175))
+    {
+      Robot.motorsStop();
+      tleft();
+      Robot.motorsWrite (110,110);
+      tstop();
+      delay(1000);
+    }
+    tstop();
     Serial.println("tleft");
+    sprobe = 1;
   }
   if ((rtprobe > 175))
   {
+    treset();
     Robot.motorsWrite (110,110);
-    if (fprobe < 90)
+    if (fprobe < 90 && rtprobe > 175 && lprobe < 150)
+    {
       Robot.motorsStop();
-    else
-      delay (300);
-    //Robot.motorsStop();
-    tleft();
+      tright();
+      Robot.motorsWrite (110,110);
+      tstop();
+      delay(1000);
+    }
     
-    Robot.motorsWrite (110,110);
-    delay(1000);
-    Serial.println("tleft");
+    if((tev >= 3) && (lprobe > 175))
+    {
+      Robot.motorsStop();
+      tleft();
+      Robot.motorsWrite (110,110);
+      tstop();
+      delay(1000);
+    }
+      
+    if (rtprobe > 175 && uturn == 1)
+    {
+      uturn = 0;
+      Robot.motorsWrite (110,110);
+      delay(300);
+      tright();
+      Robot.motorsWrite (110,110);
+      tstop();
+      delay(1000);
+    }
+    tstop();
+    Serial.println("tleft2");
+    sprobe = 1;
+  }
+  if (lprobe < 150 && fprobe < 90 && rtprobe < 150 && uturn == 0)
+  {
+    uturn = 1;
+    tleft();
+    delay(100);
+    tleft();
   }
 }
   
@@ -200,7 +237,7 @@ void linef2(){
     }
    for(int count=0; count<5; count++)
   {
-    irs[count]=map(Robot.IRarray[count],0,1023,0,127);
+    irs2[count]=map(Robot.IRarray[count],0,1023,0,127);
     acu+=irs[count];
   }
 
@@ -209,7 +246,7 @@ void linef2(){
   {
     acu/=5;
 
-    int error = ((irs[0]<<6)+(irs[1]<<5)-(irs[3]<<5)-(irs[4]<<6))/acu;
+    int error = ((irs2[0]<<6)+(irs2[1]<<5)-(irs2[3]<<5)-(irs2[4]<<6))/acu;
 
     error = constrain(error,-100,100);
 
@@ -228,6 +265,18 @@ void linef2(){
 
     //Esperamos un poquito a que el robot reaccione
     delay(10);
+  }
+  
+  if (irs[4] < THRESHOLD && irs[3] < THRESHOLD && irs[2] < THRESHOLD && irs[1] < THRESHOLD && irs[0] < THRESHOLD || irs[4] > THRESHOLD && irs[3] > THRESHOLD && irs[2] > THRESHOLD && irs[1] > THRESHOLD && irs[0] > THRESHOLD)
+  {
+    IRScore = 50;
+    
+    if((lfprobe < 200 && lfprobe > 0) && (rtprobe < 200 && rtprobe > 0))
+    {
+      State = 1;
+      Serial.println("wallf");
+    }
+    
   }
 }
 
@@ -341,4 +390,8 @@ void treset()
 
 void tevent(){
   tev +=1;
+}
+
+void tstop(){
+  tt.stop(ticks);
 }
