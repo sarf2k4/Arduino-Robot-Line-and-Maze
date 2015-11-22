@@ -92,6 +92,8 @@ void loop()
   Serial.print(rtprobe);
   Serial.println();
 
+  modech();
+
   if(State == 0)
   {
     linef2();
@@ -319,6 +321,8 @@ void linef(){
   {
     IRScore = 50;
   }
+  if(0)
+  {
   if (irs[4] < THRESHOLD && irs[3] < THRESHOLD && irs[2] < THRESHOLD && irs[1] < THRESHOLD && irs[0] < THRESHOLD || irs[4] > THRESHOLD && irs[3] > THRESHOLD && irs[2] > THRESHOLD && irs[1] > THRESHOLD && irs[0] > THRESHOLD)
   {
     IRScore = 50;
@@ -328,7 +332,7 @@ void linef(){
       State = 1;
       Serial.println("wallf");
     }
-    
+  }
   }
   if (irs[4] > THRESHOLD && irs[3] < THRESHOLD && irs[2] < THRESHOLD && irs[1] < THRESHOLD && irs[0] > THRESHOLD)
     IRScore = 50;
@@ -394,4 +398,12 @@ void tevent(){
 
 void tstop(){
   tt.stop(ticks);
+}
+
+void modech(){
+  if (Robot.keyoardRead() == BUTTON_UP)
+    State = 0;
+  if (Robot.keyoardRead() == BUTTON_DOWN)
+    State = 1;
+  Serial.println (State);
 }
