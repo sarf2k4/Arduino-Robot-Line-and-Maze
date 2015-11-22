@@ -29,9 +29,15 @@ This is a code for Arduino Robot that has Line and Maze mode in one sketch
 - some hitches with Maze Mode disrupting Line Mode (unable to follow line properly)
 - Added automatic mode change from Line Mode to Maze Mode with basic conditions
 
-###V0.5
+###v1.0
+- Added PID algorithm
+- Added IF ELSE statement to handle PID
+- PID Value optimized for line turn radius of approx. 10 to 20cm
+- 
+
+###v0.5
 - Added Speed multiplier based on percentage
 
-###V0.1
+###v0.1
 - Basic line follow codes 
 - No PID controls
