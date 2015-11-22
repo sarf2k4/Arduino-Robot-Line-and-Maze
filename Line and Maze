@@ -3,48 +3,100 @@
 #include <SPI.h>
 
 double THRESHOLD =500;
-double MULTIPLIER =40; //values in %
+double MULTIPLIER =100; //values in %
 
 double Speed = 255*(MULTIPLIER/100);
 int State = 0;
 
 int irs[5];
 
+//pid vars
+double IRScore;
+const int MAX_SPEED = 255;
+const int MIN_SPEED = 0;
+const int TARGET = 50;
+double error = 0;
+double lasterror;
+double motorgain;
+double leftmotorspeed;
+double rightmotorspeed;
+
+double divider = 2;
+
+double Kp = 7;
+double Kd = 10;
+
+int state;
+
 void setup()
 {
-  //Speed = 255*(MULTIPLIER/100);
   Serial.begin(9600);
   Robot.begin();
 }
 
-//void loop()
-//{
-
-  //dir();
-//}
-
 void loop()
 {
-  String stat = "";
+  Serial.println(Robot.compassRead());
+  linef();
+}
+
+void linef(){
+  
   Robot.updateIR();
   for(int i=0; i<5; i++){
-    irs[i]=Robot.IRarray[i];
+  irs[i]=Robot.IRarray[i];
   }
-
-  // turn right
-  turn_right(irs[0]);
-
-  turn_right_less(irs[1], irs[2]);
-
-  straight(irs[1],irs[2],irs[3]);
   
-  turn_left_less(irs[2], irs[3]);
-  
-  turn_left(irs[4]);
-  
-  //motor_stop(irs[0],irs[1],irs[2],irs[3],irs[4]);
-  delay(5);
+  if (irs[2] < THRESHOLD || (irs[1] < THRESHOLD && irs[2] < THRESHOLD && irs[3] < THRESHOLD)) //STRAIGHT
+    IRScore = 50;
+  if (irs[3] < THRESHOLD)
+    IRScore = 25;
+  if (irs[1] < THRESHOLD)
+    IRScore = 75;
+  if (irs[4] < THRESHOLD)
+    IRScore = 0;
+  if (irs[0] < THRESHOLD)
+    IRScore = 100;
+    
+  if (irs[3] < THRESHOLD && irs[2] < THRESHOLD)
+    IRScore = 12.5;
+  if (irs[2] < THRESHOLD && irs[1] < THRESHOLD)
+    IRScore = 87.5;
 
+  if (irs[4] < THRESHOLD && irs[0] < THRESHOLD) //STRAIGHT
+    IRScore = 50;
+
+  if (irs[4] < THRESHOLD && irs[3] < THRESHOLD && irs[2]) //3 IRs to left
+    IRScore = 12.5;
+  if (irs[2] < THRESHOLD && irs[1] < THRESHOLD && irs[0]) //3 IRs to right
+    IRScore = 87.5;
+    
+  if (irs[4] < THRESHOLD && irs[3] < THRESHOLD && irs[2] < THRESHOLD && irs[1] < THRESHOLD) //4 IRs to left
+    IRScore = 12.5;
+  if (irs[3] < THRESHOLD && irs[2] < THRESHOLD && irs[1] < THRESHOLD && irs[0] < THRESHOLD) //4 IRs to right
+    IRScore = 87.5;
+
+  if (irs[4] < THRESHOLD && irs[3] < THRESHOLD && irs[2] < THRESHOLD && irs[1] < THRESHOLD && irs[0] < THRESHOLD) //STRAIGHT
+    IRScore = 50;
+	
+  error = TARGET - IRScore;
+  motorgain = Kp * error + Kd * (error - lasterror);
+  lasterror = error;
+
+  rightmotorspeed = Speed + motorgain;
+  leftmotorspeed = Speed - motorgain;
+  
+  if (leftmotorspeed > 255) leftmotorspeed = 255;
+  if (rightmotorspeed > 255) rightmotorspeed = 255;
+  if (leftmotorspeed < -255) leftmotorspeed = -255;
+  if (rightmotorspeed < -255) rightmotorspeed = -255;
+  
+  if (rightmotorspeed != leftmotorspeed)
+  Robot.motorsWrite(leftmotorspeed/divider,rightmotorspeed/divider);
+  else
+  Robot.motorsWrite(leftmotorspeed,rightmotorspeed);
+
+  
 }
 
 
@@ -52,28 +104,29 @@ void turn_right(int ir1)
 {
   if (ir1 < THRESHOLD)
   {
-    Robot.motorsWrite(Speed,-Speed);
+    Robot.turn(10);
   }
 }
 
 void turn_right_less(int ir1, int ir2) {
   if (ir1 < THRESHOLD || ((ir2 < THRESHOLD) && (ir1 < THRESHOLD)))
   {
-    Robot.motorsWrite(Speed,-Speed);
+    Robot.turn(5);
+
   }
 }
 
 void turn_left_less (int ir2, int ir3){
   if (ir3 < THRESHOLD || ((ir2 < THRESHOLD) && (ir3 < THRESHOLD)))
   {
-    Robot.motorsWrite(-Speed,Speed);
+    Robot.turn(-5);
   }
 }
   
 void turn_left(int ir4){
   if (ir4 < THRESHOLD)
   {
-    Robot.motorsWrite(-Speed,Speed);
+    Robot.turn(-10);
   }
 }
 
@@ -91,3 +144,4 @@ void straight(int ir1,int ir2, int ir3){
 void motor_stop(int ir0, int ir1, int ir2, int ir3, int ir4){
   Robot.motorsStop();
 }
+
