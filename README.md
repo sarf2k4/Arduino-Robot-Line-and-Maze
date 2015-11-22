@@ -8,6 +8,10 @@ This is a code for Arduino Robot that has Line and Maze mode in one sketch. This
 - Without the turn logics, the robot unable do 90 degree elbow turn properly but it will stay dead center
 
 ##CHANGELOGS
+###v1.6
+- Added button to manually change between Line (UP button) and Maze (DOWN button) Mode
+- Uses variable "State" to retain the mode
+
 ###v1.5
 - Enforced Mode switching to be more stricter
 - Added logic on Maze mode
