@@ -3,93 +3,91 @@
 #include <SPI.h>
 
 double THRESHOLD =500;
+double MULTIPLIER =40; //values in %
 
-double Speed = 255;
+double Speed = 255*(MULTIPLIER/100);
 int State = 0;
+
 int irs[5];
 
 void setup()
 {
   //Speed = 255*(MULTIPLIER/100);
   Serial.begin(9600);
-
   Robot.begin();
-  Robot.beginTFT();
 }
+
+//void loop()
+//{
+
+  //dir();
+//}
 
 void loop()
-{
-  
-  dir(irs);
-  //Robot.motorsWrite(255,255);
-  Serial.println("");
-  Serial.println(Speed);
-    Serial.println("spin"); 
-  //delay(100);
-
-}
-
-void dir(int irs[5])
 {
   String stat = "";
   Robot.updateIR();
   for(int i=0; i<5; i++){
     irs[i]=Robot.IRarray[i];
-    Serial.print(Robot.IRarray[i]);
-    Serial.print(" ");
-  }
-  
-  Serial.println("");
-  
-  Robot.stroke(0,0,0);
-  Robot.textSize(1);
-  
-  // turn right
-  if (irs[0]<THRESHOLD)
-  {
-    Robot.motorsWrite(96,16);
-    Serial.println("0 to right (128,32)");
-Robot.text("right 1",0,0);
-  }
-  if (irs[1]<THRESHOLD || ((irs[2]<THRESHOLD) && (irs[1]<THRESHOLD)))
-  {
-Robot.motorsWrite(96,16);
-Serial.println("1 to right (64,32)");
-Robot.text("right 2",0,0);
-  }
-  // turn left
-  if (irs[3]<THRESHOLD || ((irs[2]<THRESHOLD) && (irs[3]<THRESHOLD)))
-  {
-Robot.motorsWrite(16,96);
-	Serial.println("3 to left (32,64)");
-Robot.text("left 1",0,0);
-  }
-  if (irs[4]<THRESHOLD)
-  {
-Robot.motorsWrite(16,96);
-	Serial.println("4 to left (32,128)");
-Robot.text("left 2",0,0);
-  }
-  
-  if((irs[2]<THRESHOLD))
-  {
-	Robot.motorsWrite(Speed,Speed);
-	Serial.println("straight");
-Robot.text("straight 1",0,0);
-  }
-  
-  if((irs[1]<THRESHOLD) && (irs[2]<THRESHOLD) && (irs[3]<THRESHOLD))
-  {
-	Robot.motorsWrite(Speed,Speed);
-	Serial.println("straight");
-Robot.text("straight 3",0,0);
   }
 
+  // turn right
+  turn_right(irs[0]);
+
+  turn_right_less(irs[1], irs[2]);
+
+  straight(irs[1],irs[2],irs[3]);
   
-  //txt(stat);
+  turn_left_less(irs[2], irs[3]);
+  
+  turn_left(irs[4]);
+  
+  //motor_stop(irs[0],irs[1],irs[2],irs[3],irs[4]);
+  delay(5);
+
 }
 
-void txt(String stat)
+
+void turn_right(int ir1)
 {
+  if (ir1 < THRESHOLD)
+  {
+    Robot.motorsWrite(Speed,-Speed);
+  }
+}
+
+void turn_right_less(int ir1, int ir2) {
+  if (ir1 < THRESHOLD || ((ir2 < THRESHOLD) && (ir1 < THRESHOLD)))
+  {
+    Robot.motorsWrite(Speed,-Speed);
+  }
+}
+
+void turn_left_less (int ir2, int ir3){
+  if (ir3 < THRESHOLD || ((ir2 < THRESHOLD) && (ir3 < THRESHOLD)))
+  {
+    Robot.motorsWrite(-Speed,Speed);
+  }
+}
   
+void turn_left(int ir4){
+  if (ir4 < THRESHOLD)
+  {
+    Robot.motorsWrite(-Speed,Speed);
+  }
+}
+
+void straight(int ir1,int ir2, int ir3){
+  if((ir2 < THRESHOLD))
+    {
+      Robot.motorsWrite(Speed,Speed);
+    }
+  if((ir1 < THRESHOLD) && (ir2 < THRESHOLD) && (ir3 < THRESHOLD))
+  {
+    Robot.motorsWrite(Speed,Speed);
+  }
+}
+
+void motor_stop(int ir0, int ir1, int ir2, int ir3, int ir4){
+  Robot.motorsStop();
 }
