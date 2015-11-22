@@ -1,6 +1,7 @@
 #include <ArduinoRobot.h>
 #include <Wire.h>
 #include <SPI.h>
+#include <Timer.h>
 
 double THRESHOLD =600;
 double MULTIPLIER =75; //values in %
@@ -35,6 +36,17 @@ int lfprobe, rtprobe;
 #define LRS TKD2
 #define FRS TKD1
 #define RRS TKD0
+
+//linef2
+double acu, last_error2, error2, KP2, KD2;
+
+//new wall
+int mint = 300;
+unsigned long pmill;
+
+//timers
+int turntime, ticks, tev;
+Timer tt;
 
 void setup()
 {  
@@ -72,7 +84,7 @@ void loop()
   if (fprobe < 0 )
     fprobe = 1000;
 
-    Serial.print(lfprobe);
+  Serial.print(lfprobe);
   Serial.print(" ");
   Serial.print(fprobe);
   Serial.print(" ");
@@ -81,7 +93,7 @@ void loop()
 
   if(State == 0)
   {
-    linef();
+    linef2();
     Serial.println("linef");
     //delay(1000);
   }
@@ -94,60 +106,56 @@ void loop()
 }
 
 void wallf(){
+  double centr,centl, jun;
+  
   //Serial.println("wallf");
   fprobe = range(TKD1);
   lprobe = range(TKD2);
   rtprobe = range(TKD0);
-
+  
+  
+  
   if (lprobe < 0 )
     lfprobe = 1000;
   if (rtprobe < 0 )
     rtprobe = 1000;
   if (fprobe < 0 )
     fprobe = 1000;
-
+  if (lprobe == rtprobe)
+  {
+    centl = lprobe;
+    centr = rtprobe;
+    
+  }
 if(0)
 {
-  if ((fprobe < 90 && fprobe > 0) && (lprobe < 120 && lprobe > 0))
+  if ((lprobe > 175))
   {
-    Robot.motorsStop();
-    tright();
-
-    if (lprobe < 120)
+    unsigned long cmill = millis();
+    
+    Robot.motorsWrite (110,110);
+    if((cmill - pmill >= mint) && (lprobe > 175))
     {
-      Robot.motorsWrite(110,110);
-      if (range(FRS) < 90)
-      {
-        Robot.motorsStop();
-        sprobe = 1;
-      }
-      //Serial.println("lrs");
+      pmill = cmill;
+      Robot.motorsStop();
+      tleft();
+      Robot.motorsWrite (110,110);
+      delay(1000);
     }
-    delay(dly);
-    Serial.println("tright1");
+    else
+    
+    Serial.println("tleft");
   }
-  if ((fprobe < 90 && fprobe > 0) && (lprobe > 120 && lprobe < 300))
-  {
-    Robot.motorsStop();
-    tright();
-    if (range(LRS) > 120)
-    {
-      Robot.motorsWrite(110,110);
-      if (range(FRS) < 90)
-      {
-        Robot.motorsStop();
-        sprobe = 1;
-      }
-    }
-    delay(dly);
-    Serial.println("tright2");
-  }
-  if (lprobe > 200)
+  if ((rtprobe > 175))
   {
     Robot.motorsWrite (110,110);
-    delay (300);
-    Robot.motorsStop();
+    if (fprobe < 90)
+      Robot.motorsStop();
+    else
+      delay (300);
+    //Robot.motorsStop();
     tleft();
+    
     Robot.motorsWrite (110,110);
     delay(1000);
     Serial.println("tleft");
@@ -180,6 +188,48 @@ if(0)
   delay(dt1);
 
 }
+void wallf2()
+{
+  
+}
+
+void linef2(){
+  Robot.updateIR();
+    for(int i=0; i<5; i++){
+      irs[i]=Robot.IRarray[i];
+    }
+   for(int count=0; count<5; count++)
+  {
+    irs[count]=map(Robot.IRarray[count],0,1023,0,127);
+    acu+=irs[count];
+  }
+
+  //Serial.println(millis());
+  if (acu > 50)
+  {
+    acu/=5;
+
+    int error = ((irs[0]<<6)+(irs[1]<<5)-(irs[3]<<5)-(irs[4]<<6))/acu;
+
+    error = constrain(error,-100,100);
+
+    //Calculamos la correcion de velocidad mediante un filtro PD
+    int vel = (error2 * KP2)/10 + (error2-last_error2)*KD2;
+
+    last_error2 = error2;
+
+    //Corregimos la velocidad de avance con el error de salida del filtro PD
+    int motor_left = constrain((Speed + vel),-255,255);
+    int motor_right =constrain((Speed - vel),-255,255);
+
+    //Movemos el robot
+    //motorsWritePct(motor_left,motor_right);
+    Robot.motorsWrite(motor_left,motor_right);
+
+    //Esperamos un poquito a que el robot reaccione
+    delay(10);
+  }
+}
 
 void linef(){
   Serial.println("line");
@@ -187,7 +237,6 @@ void linef(){
     for(int i=0; i<5; i++){
       irs[i]=Robot.IRarray[i];
     }
-	
   if (irs[2] < THRESHOLD || (irs[1] < THRESHOLD && irs[2] < THRESHOLD && irs[3] < THRESHOLD))
     IRScore = 50;
   if (irs[3] < THRESHOLD)
@@ -221,7 +270,7 @@ void linef(){
   {
     IRScore = 50;
   }
-  if ((irs[4] < THRESHOLD && irs[3] < THRESHOLD && irs[2] < THRESHOLD && irs[1] < THRESHOLD && irs[0] < THRESHOLD) || (irs[4] > THRESHOLD && irs[3] > THRESHOLD && irs[2] > THRESHOLD && irs[1] > THRESHOLD && irs[0] > THRESHOLD))
+  if (irs[4] < THRESHOLD && irs[3] < THRESHOLD && irs[2] < THRESHOLD && irs[1] < THRESHOLD && irs[0] < THRESHOLD || irs[4] > THRESHOLD && irs[3] > THRESHOLD && irs[2] > THRESHOLD && irs[1] > THRESHOLD && irs[0] > THRESHOLD)
   {
     IRScore = 50;
     
@@ -255,6 +304,8 @@ void linef(){
   Serial.println(IRScore);
 }
 
+
+
 int range(int port)
 {
   int duration;
@@ -273,13 +324,21 @@ void tright()
   Robot.motorsWrite(108,-108);
   delay(500);
   Robot.motorsStop();
-  delay(1000);
+  delay(250);
 }
-
 void tleft()
 {
   Robot.motorsWrite(-108,108);
   delay(500);
   Robot.motorsStop();
-  delay(1000);
+  delay(250);
+}
+
+void treset()
+{
+  ticks = tt.every(100,tevent);
+}
+
+void tevent(){
+  tev +=1;
 }
