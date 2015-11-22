@@ -1,6 +1,6 @@
 # Arduino-Robot-Line-and-Maze
 ##INTRO
--This is a code for Arduino Robot that has Line and Maze mode in one sketch
+This is a code for Arduino Robot that has Line and Maze mode in one sketch
 
 ##KNOWN ISSUES
 - v1.2 onwards has problems where the Maze mode codes disrupts the Line Mode making the robot unable to follow the line properly when it's still in Line Mode
