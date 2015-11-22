@@ -33,7 +33,6 @@ This is a code for Arduino Robot that has Line and Maze mode in one sketch
 - Added PID algorithm
 - Added IF ELSE statement to handle PID
 - PID Value optimized for line turn radius of approx. 10 to 20cm
-- 
 
 ###v0.5
 - Added Speed multiplier based on percentage
