@@ -21,33 +21,132 @@ double motorgain;
 double leftmotorspeed;
 double rightmotorspeed;
 
-double divider = 2;
+double divider = 1.25;
 
 double Kp = 7;
 double Kd = 10;
 
-int state;
+double lms,rms;
+double integral1, error1, perror1, derivative1, output1, p1, i1, d1,dt1;
+
+int state, lprob,rpob , probet, rsense, fprobe, lprobe, sprobe, dly;
+
+#define LRS TKD2
+#define FRS TKD1
+#define RRS TKD0
 
 void setup()
-{
+{  
+  integral1 = 0;
+  perror1 = 0;
+  p1 = 10;
+  i1 = 1;
+  d1 = 1200;
+  dt1 = 25;
+
+  State = 1;
+  probet = 100;
+  rsense = 1;  
+  sprobe = 0;
+  dly = 500;
+
   Serial.begin(9600);
   Robot.begin();
+
 }
 
 void loop()
 {
-  Serial.println(Robot.compassRead());
-  linef();
+  Serial.println(State);
+  if(State == 0)
+  {
+    linef();
+  }
+  else if(State == 1)
+  {
+    wallf();
+  }
+}
+
+void wallf(){
+  Serial.println("wallf");
+  fprobe = range(TKD1);
+  lprobe = range(TKD2);
+  
+  Serial.println(fprobe);
+
+  if (fprobe < 90 && lprobe < 120)
+  {
+    Robot.motorsStop();
+    tright();
+
+    if (range(LRS) < 120)
+    {
+      Robot.motorsWrite(110,110);
+      if (range(FRS) < 90)
+      {
+        Robot.motorsStop();
+        sprobe = 1;
+      }
+      Serial.println("lrs");
+    }
+    delay(dly);
+  }
+  if (fprobe < 90 && lprobe > 120)
+  {
+    Robot.motorsStop();
+    tright();
+    if (range(LRS) > 120)
+    {
+      Robot.motorsWrite(110,110);
+      if (range(FRS) < 90)
+      {
+        Robot.motorsStop();
+        sprobe = 1;
+      }
+    }
+    delay(dly);
+  }
+  if (lprobe > 200)
+  {
+    Robot.motorsWrite (110,110);
+    delay (300);
+    Robot.motorsStop();
+    tleft();
+    Robot.motorsWrite (110,110);
+    delay(1000);
+  }
+  
+
+  error1 = probet - lprobe;
+  integral1 = integral1 + (error*dt1);
+  derivative1 = (error1 - perror1)/dt1;
+  output1 = p1 * error1 + i1 * integral1 + d1 * derivative1;
+  perror1 = error1;
+
+  lms = Speed + output1;
+  rms = Speed - output1;
+
+  if (lms > 127) lms = 127;
+  if (rms > 127) rms = 127;
+  if (lms < 56) lms = 56;
+  if (rms < 56) rms = 56;
+  
+  if(!sprobe)
+  {
+    Robot.motorsWrite(lms,rms);
+  }
+  sprobe = 0;
+  delay(dt1);
+
 }
 
 void linef(){
-  
-  Robot.updateIR();
-  for(int i=0; i<5; i++){
-  irs[i]=Robot.IRarray[i];
-  }
-  
-  if (irs[2] < THRESHOLD || (irs[1] < THRESHOLD && irs[2] < THRESHOLD && irs[3] < THRESHOLD)) //STRAIGHT
+    Robot.updateIR();
+    for(int i=0; i<5; i++){
+      irs[i]=Robot.IRarray[i];
+    }
+  if (irs[2] < THRESHOLD || (irs[1] < THRESHOLD && irs[2] < THRESHOLD && irs[3] < THRESHOLD))
     IRScore = 50;
   if (irs[3] < THRESHOLD)
     IRScore = 25;
@@ -57,7 +156,7 @@ void linef(){
     IRScore = 0;
   if (irs[0] < THRESHOLD)
     IRScore = 100;
-    
+
   if (irs[3] < THRESHOLD && irs[2] < THRESHOLD)
     IRScore = 12.5;
   if (irs[2] < THRESHOLD && irs[1] < THRESHOLD)
@@ -70,78 +169,72 @@ void linef(){
     IRScore = 12.5;
   if (irs[2] < THRESHOLD && irs[1] < THRESHOLD && irs[0]) //3 IRs to right
     IRScore = 87.5;
-    
+
   if (irs[4] < THRESHOLD && irs[3] < THRESHOLD && irs[2] < THRESHOLD && irs[1] < THRESHOLD) //4 IRs to left
     IRScore = 12.5;
   if (irs[3] < THRESHOLD && irs[2] < THRESHOLD && irs[1] < THRESHOLD && irs[0] < THRESHOLD) //4 IRs to right
     IRScore = 87.5;
 
-  if (irs[4] < THRESHOLD && irs[3] < THRESHOLD && irs[2] < THRESHOLD && irs[1] < THRESHOLD && irs[0] < THRESHOLD) //STRAIGHT
+  if (irs[4] < THRESHOLD && irs[3] < THRESHOLD && irs[2] < THRESHOLD && irs[1] < THRESHOLD && irs[0] < THRESHOLD && (State == 0) || irs[4] > THRESHOLD && irs[3] > THRESHOLD && irs[2] > THRESHOLD && irs[1] > THRESHOLD && irs[0] > THRESHOLD)
+  {
     IRScore = 50;
-	
+    lprob = range(LRS);
+	rprob = range(RRS);
+    Robot.motorsWrite(110,110);
+    rsense = 1;
+
+    if ( lprob < 200 && rprob < 200)
+    {
+      State = 1;
+    }
+  }
+    else
+      rsense = 1;
   error = TARGET - IRScore;
   motorgain = Kp * error + Kd * (error - lasterror);
   lasterror = error;
 
   rightmotorspeed = Speed + motorgain;
   leftmotorspeed = Speed - motorgain;
-  
+
   if (leftmotorspeed > 255) leftmotorspeed = 255;
   if (rightmotorspeed > 255) rightmotorspeed = 255;
   if (leftmotorspeed < -255) leftmotorspeed = -255;
   if (rightmotorspeed < -255) rightmotorspeed = -255;
   
-  if (rightmotorspeed != leftmotorspeed)
-  Robot.motorsWrite(leftmotorspeed/divider,rightmotorspeed/divider);
-  else
-  Robot.motorsWrite(leftmotorspeed,rightmotorspeed);
-
-  
+  if (!rsense) 
+  {
+    if (rightmotorspeed != leftmotorspeed)
+      Robot.motorsWrite(leftmotorspeed/divider,rightmotorspeed/divider);
+    else
+      Robot.motorsWrite(leftmotorspeed,rightmotorspeed);
+  }
 }
 
-
-void turn_right(int ir1)
+int range(int port)
 {
-  if (ir1 < THRESHOLD)
-  {
-    Robot.turn(10);
-  }
+  int duration;
+
+  pinMode(port, OUTPUT);
+  digitalWrite(port, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(port, LOW);
+
+  pinMode(port, INPUT);
+  return (pulseIn(port, HIGH)/2)/3;
 }
 
-void turn_right_less(int ir1, int ir2) {
-  if (ir1 < THRESHOLD || ((ir2 < THRESHOLD) && (ir1 < THRESHOLD)))
-  {
-    Robot.turn(5);
-
-  }
-}
-
-void turn_left_less (int ir2, int ir3){
-  if (ir3 < THRESHOLD || ((ir2 < THRESHOLD) && (ir3 < THRESHOLD)))
-  {
-    Robot.turn(-5);
-  }
-}
-  
-void turn_left(int ir4){
-  if (ir4 < THRESHOLD)
-  {
-    Robot.turn(-10);
-  }
-}
-
-void straight(int ir1,int ir2, int ir3){
-  if((ir2 < THRESHOLD))
-    {
-      Robot.motorsWrite(Speed,Speed);
-    }
-  if((ir1 < THRESHOLD) && (ir2 < THRESHOLD) && (ir3 < THRESHOLD))
-  {
-    Robot.motorsWrite(Speed,Speed);
-  }
-}
-
-void motor_stop(int ir0, int ir1, int ir2, int ir3, int ir4){
+void tright()
+{
+  Robot.motorsWrite(108,-108);
+  delay(500);
   Robot.motorsStop();
+  delay(1000);
 }
-
+void tleft()
+{
+  Robot.motorsWrite(-108,108);
+  delay(500);
+  Robot.motorsStop();
+  delay(1000);
+}
