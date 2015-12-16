@@ -401,9 +401,9 @@ void tstop(){
 }
 
 void modech(){
-  if (Robot.keyoardRead() == BUTTON_UP)
+  if (Robot.keyboardRead() == BUTTON_UP)
     State = 0;
-  if (Robot.keyoardRead() == BUTTON_DOWN)
+  if (Robot.keyboardRead() == BUTTON_DOWN)
     State = 1;
   Serial.println (State);
 }
